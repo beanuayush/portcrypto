@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Files | PortCrypto</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="navbar-content">
+            <span class="logo">PortCrypto</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="card-section">
+            <div class="card">
+                <h2>Your Ping ID</h2>
+                <div class="ping-id-row">
+                    <span id="pingId" class="ping-id">Generating...</span>
+                    <button id="copyBtn" class="btn btn-white btn-small">Copy ID</button>
+                </div>
+                <p class="card-desc">Share this Ping ID with the receiver to establish a secure connection.</p>
+            </div>
+
+            <div class="card" id="statusCard">
+                <h2>Connection Status</h2>
+                <div id="connectionStatus" class="status waiting">
+                    <span class="dot"></span> Waiting for receiver to connect...
+                </div>
+                <button id="simulateConnect" class="btn btn-black btn-small">Simulate Connection</button>
+            </div>
+
+            <div class="card" id="fileCard" style="display:none;">
+                <h2>File Transfer</h2>
+                <form id="fileForm">
+                    <label for="fileInput" class="file-label">Select files to send</label>
+                    <input type="file" id="fileInput" multiple style="display:none;">
+                    <div id="dropArea" class="drop-area">
+                        <span id="dropText">Drag and drop files here or click to select</span>
+                    </div>
+                    <button type="submit" class="btn btn-black" id="sendBtn" disabled>Send Files</button>
+                </form>
+                <div id="fileList" class="file-list"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 PortCrypto. All rights reserved.</p>
+    </footer>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="send.js"></script>
+</body>
+</html> 
