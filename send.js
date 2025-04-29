@@ -1,3 +1,4 @@
+
 let peer = null;
 let conn = null;
 let aesKey = null;
@@ -73,11 +74,13 @@ function setupPeer() {
     });
     peer.on('connection', async (connection) => {
         conn = connection;
-        connectionStatus.innerHTML = '<span class="dot connected"></span> Connected';
+        connectionStatus.innerHTML = '<span class="dot connected"></span> Connected (Setting up encryption...)';
         connectionStatus.classList.remove('waiting');
         connectionStatus.classList.add('connected');
         fileCard.style.display = 'block';
+        sendBtn.disabled = true;  // Disable send button until encryption is ready
         if (simulateConnectBtn) simulateConnectBtn.style.display = 'none';
+        
         // Only send AES key after the connection is open
         conn.on('open', async () => {
             await generateAesKey();
@@ -86,6 +89,10 @@ function setupPeer() {
             conn.send(aesKeyMsg);
             console.log('[SEND] Sent AES key:', aesKeyMsg);
             aesKeyExchangeComplete = true;
+            connectionStatus.innerHTML = '<span class="dot connected"></span> Connected (Ready to transfer)';
+            if (selectedFiles.length > 0) {
+                sendBtn.disabled = false;  // Re-enable send button if files are selected
+            }
         });
     });
 }
@@ -134,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only remove file selection UI, not progress/status elements
         clearFileSelectionUI();
         if (selectedFiles.length > 0) {
-            sendBtn.disabled = false;
+            sendBtn.disabled = !aesKeyExchangeComplete; // Only enable if encryption is ready
             selectedFiles.forEach((file, idx) => {
                 const div = document.createElement('div');
                 div.textContent = file.name + ' (' + Math.round(file.size/1024) + ' KB)';
@@ -153,16 +160,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Add retry logic for AES key exchange
+        if (conn && conn.open && !aesKeyExchangeComplete) {
+            // Wait up to 3 seconds for AES key exchange to complete
+            for (let i = 0; i < 15; i++) {
+                if (aesKeyExchangeComplete) break;
+                await new Promise(res => setTimeout(res, 200));
+            }
+        }
+
         if (conn && conn.open && aesKeyExchangeComplete) {
             const files = selectedFiles;
             if (!files.length) return;
-            // Wait 200ms after sending AES key to ensure receiver is ready
-            await new Promise(res => setTimeout(res, 200));
+            
+            // Increased wait time to ensure receiver is ready
+            await new Promise(res => setTimeout(res, 500));
+            
             async function sendFile(file) {
                 return new Promise((resolve) => {
                     const metadataMsg = { type: 'metadata', name: file.name, size: file.size, mime: file.type };
                     console.log('Sending metadata:', metadataMsg);
-                    conn.send(JSON.stringify(metadataMsg));
+                    
+                    // Add retry logic for sending metadata
+                    let retries = 3;
+                    const sendMetadata = () => {
+                        try {
+                            conn.send(JSON.stringify(metadataMsg));
+                        } catch (err) {
+                            if (retries > 0) {
+                                retries--;
+                                setTimeout(sendMetadata, 200);
+                            }
+                        }
+                    };
+                    sendMetadata();
+
                     const chunkSize = 8 * 1024; // 8 KB
                     let offset = 0;
                     let reader = new FileReader();
