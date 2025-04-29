@@ -55,7 +55,12 @@ async function encryptData(data) {
 
 // Set up PeerJS
 function setupPeer() {
-    peer = new Peer();
+    peer = new Peer({
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        debug: 3
+    });
     peer.on('open', (id) => {
         pingIdSpan.textContent = id;
         copyBtn.onclick = () => {
