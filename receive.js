@@ -21,79 +21,19 @@ let readyForFiles = false;
 let pendingChunks = [];
 
 function setupPeer() {
-    peer = new Peer();
-}
-
-setupPeer();
-
-// Import AES key from raw
-async function importAesKey(rawKey) {
-    return await window.crypto.subtle.importKey(
-        'raw',
-        new Uint8Array(rawKey),
-        { name: 'AES-GCM' },
-        true,
-        ['encrypt', 'decrypt']
-    );
-}
-
-// Decrypt data with AES-GCM
-async function decryptData(data) {
-    let arr = data;
-    if (Array.isArray(data)) {
-        arr = new Uint8Array(data);
-    } else if (data instanceof ArrayBuffer) {
-        arr = new Uint8Array(data);
-    }
-    return new Uint8Array(await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: aesIv },
-        aesKey,
-        arr
-    ));
-}
-
-async function processChunk(data) {
-    try {
-        const decrypted = await decryptData(data);
-        receivedChunks.push(decrypted);
-        receivedSize += decrypted.byteLength;
-        if (incomingFile && progressDiv && bar) {
-            const percent = Math.min(100, Math.round((receivedSize / incomingFile.size) * 100));
-            progressDiv.textContent = `Receiving: ${percent}% (${incomingFile.name})`;
-            bar.style.width = percent + '%';
-        }
-        console.log('Decrypted chunk:', decrypted);
-    } catch (err) {
-        console.error('Decryption error:', err);
-    }
-}
-
-async function tryProcessPendingChunks() {
-    console.log('[tryProcessPendingChunks] Buffer length:', pendingChunks.length, 'aesKey:', !!aesKey, 'incomingFile:', !!incomingFile);
-    if (aesKey && incomingFile) {
-        let idx = 0;
-        while (pendingChunks.length > 0) {
-            const chunk = pendingChunks.shift();
-            console.log(`[tryProcessPendingChunks] Processing buffered chunk #${idx}`);
-            await processChunk(chunk);
-            idx++;
-        }
-    }
-}
-
-connectForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const senderId = pingInput.value.trim();
-    if (!senderId) return;
-    conn = peer.connect(senderId);
-    connectionStatus.innerHTML = '<span class="dot"></span> Connecting...';
-    connectionStatus.classList.remove('waiting', 'connected');
-    conn.on('open', () => {
+    peer = new Peer({
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        debug: 3
+    });
+    peer.on('open', (id) => {
         connectionStatus.innerHTML = '<span class="dot connected"></span> Connected';
         connectionStatus.classList.add('connected');
         fileCard.style.display = 'block';
         receiveStatus.textContent = 'Waiting for files...';
     });
+    conn = peer.connect(pingInput.value.trim());
     conn.on('data', async (data) => {
         console.log('Received data:', data, typeof data, data instanceof ArrayBuffer, data instanceof Object);
         // If data is a string, try to parse as JSON
@@ -184,4 +124,66 @@ connectForm.addEventListener('submit', (e) => {
             connectionStatus.innerHTML = '<span class="dot"></span> Connection closed after transfer';
         }
     });
+}
+
+// Import AES key from raw
+async function importAesKey(rawKey) {
+    return await window.crypto.subtle.importKey(
+        'raw',
+        new Uint8Array(rawKey),
+        { name: 'AES-GCM' },
+        true,
+        ['encrypt', 'decrypt']
+    );
+}
+
+// Decrypt data with AES-GCM
+async function decryptData(data) {
+    let arr = data;
+    if (Array.isArray(data)) {
+        arr = new Uint8Array(data);
+    } else if (data instanceof ArrayBuffer) {
+        arr = new Uint8Array(data);
+    }
+    return new Uint8Array(await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: aesIv },
+        aesKey,
+        arr
+    ));
+}
+
+async function processChunk(data) {
+    try {
+        const decrypted = await decryptData(data);
+        receivedChunks.push(decrypted);
+        receivedSize += decrypted.byteLength;
+        if (incomingFile && progressDiv && bar) {
+            const percent = Math.min(100, Math.round((receivedSize / incomingFile.size) * 100));
+            progressDiv.textContent = `Receiving: ${percent}% (${incomingFile.name})`;
+            bar.style.width = percent + '%';
+        }
+        console.log('Decrypted chunk:', decrypted);
+    } catch (err) {
+        console.error('Decryption error:', err);
+    }
+}
+
+async function tryProcessPendingChunks() {
+    console.log('[tryProcessPendingChunks] Buffer length:', pendingChunks.length, 'aesKey:', !!aesKey, 'incomingFile:', !!incomingFile);
+    if (aesKey && incomingFile) {
+        let idx = 0;
+        while (pendingChunks.length > 0) {
+            const chunk = pendingChunks.shift();
+            console.log(`[tryProcessPendingChunks] Processing buffered chunk #${idx}`);
+            await processChunk(chunk);
+            idx++;
+        }
+    }
+}
+
+connectForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const senderId = pingInput.value.trim();
+    if (!senderId) return;
+    setupPeer();
 }); 
