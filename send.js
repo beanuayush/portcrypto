@@ -2,6 +2,7 @@ let peer = null;
 let conn = null;
 let aesKey = null;
 let aesIv = null;
+let aesKeyExchangeComplete = false;
 
 const pingIdSpan = document.getElementById('pingId');
 const copyBtn = document.getElementById('copyBtn');
@@ -84,6 +85,7 @@ function setupPeer() {
             const aesKeyMsg = JSON.stringify({ type: 'aes-key', key: Array.from(rawKey), iv: Array.from(aesIv) });
             conn.send(aesKeyMsg);
             console.log('[SEND] Sent AES key:', aesKeyMsg);
+            aesKeyExchangeComplete = true;
         });
     });
 }
@@ -151,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (conn && conn.open) {
+        if (conn && conn.open && aesKeyExchangeComplete) {
             const files = selectedFiles;
             if (!files.length) return;
             // Wait 200ms after sending AES key to ensure receiver is ready
@@ -207,7 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedFiles = [];
             updateFileList();
         } else {
-            alert('Not connected to a receiver!');
+            if (!aesKeyExchangeComplete) {
+                alert('Please wait for secure connection setup to complete...');
+            } else {
+                alert('Not connected to a receiver!');
+            }
         }
     });
 }); 
